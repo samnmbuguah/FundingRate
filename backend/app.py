@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 from lighter_client import LighterClient
@@ -6,12 +6,23 @@ from models import db, FundingRate
 from datetime import datetime, timedelta
 import atexit
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Determine if we're in production
+IS_PRODUCTION = os.environ.get('FLASK_ENV') == 'production'
+
+# Configure static folder path
+if IS_PRODUCTION:
+    # In production, serve built frontend from frontend/dist
+    static_folder = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'dist')
+    app = Flask(__name__, static_folder=static_folder, static_url_path='')
+else:
+    app = Flask(__name__)
+
 CORS(app)
 
 # Database configuration
@@ -124,5 +135,18 @@ def get_funding_rates():
             "timestamp": datetime.utcnow().isoformat()
         }), 500
 
+# Serve frontend in production
+if IS_PRODUCTION:
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        """
+        Serve the React frontend in production.
+        """
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        else:
+            return send_from_directory(app.static_folder, 'index.html')
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=not IS_PRODUCTION)
