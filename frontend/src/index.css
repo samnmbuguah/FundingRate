@@ -7,6 +7,7 @@
   --success-color: #22c55e;
   --danger-color: #ef4444;
   --border-color: #334155;
+  --hover-bg: #334155;
 }
 
 body {
@@ -15,6 +16,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease;
 }
 
 .app-container {
@@ -33,6 +35,8 @@ body {
   margin-bottom: 3rem;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .app-header h1 {
@@ -48,6 +52,9 @@ body {
 .status-bar {
   font-size: 0.9rem;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .loading-badge {
@@ -57,6 +64,12 @@ body {
   border-radius: 9999px;
   font-weight: 600;
   font-size: 0.8rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
 }
 
 .dashboard-content {
@@ -81,6 +94,12 @@ body {
   padding: 1.5rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--border-color);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.funding-table-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .table-title {
@@ -121,10 +140,15 @@ th {
 td {
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
 }
 
 tr:last-child td {
   border-bottom: none;
+}
+
+tbody tr:hover td {
+  background-color: var(--hover-bg);
 }
 
 .symbol-cell {
@@ -138,34 +162,12 @@ tr:last-child td {
 }
 
 .rate-cell.positive {
-  color: var(--danger-color); /* Positive funding rate means Longs pay Shorts (Short opportunity?) */
-  /* Wait, prompt said: "Top 10 Short Opportunities (Highest Positive Average Funding Rate)" */
-  /* So Positive rate is good for Shorts (they receive funding). */
-  /* Let's color it green for "Opportunity" or stick to Red/Green convention? */
-  /* Usually Green = Good. If it's a Short Opportunity, Positive rate is Good for Short. */
-  /* But typically Positive numbers are Green, Negative are Red. */
-  /* However, in funding rates: */
-  /* Positive = Longs pay Shorts. */
-  /* Negative = Shorts pay Longs. */
-  /* Let's stick to standard colors: Positive = Green (or Red if implying cost?), Negative = Red (or Green if implying income?). */
-  /* Actually, let's just color based on value sign for clarity. */
   color: var(--success-color); 
 }
 
 .rate-cell.negative {
   color: var(--danger-color);
 }
-
-/* Override for context */
-.table-title.long ~ .table-wrapper .rate-cell.negative {
-  color: var(--success-color); /* Negative rate is good for Longs */
-}
-
-.table-title.short ~ .table-wrapper .rate-cell.positive {
-  color: var(--success-color); /* Positive rate is good for Shorts */
-}
-/* This CSS selector logic is a bit complex for simple sibling. Let's just use the prop in React or keep it simple. */
-/* I'll simplify: just color based on value. */
 
 .error-message {
   background-color: rgba(239, 68, 68, 0.1);
@@ -181,4 +183,70 @@ tr:last-child td {
   text-align: center;
   color: var(--text-secondary);
   font-size: 0.8rem;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-btn {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--hover-bg);
+  border-color: var(--accent-color);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  .app-container {
+    padding: 1rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .funding-table-container {
+    padding: 1rem;
+  }
+
+  th, td {
+    padding: 0.75rem 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .table-title {
+    font-size: 1.1rem;
+  }
 }
