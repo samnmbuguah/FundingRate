@@ -135,6 +135,25 @@ def get_funding_rates():
             "timestamp": datetime.utcnow().isoformat()
         }), 500
 
+@app.route('/api/funding_rates/<symbol>', methods=['GET'])
+def get_symbol_history(symbol):
+    """
+    Get historical funding rates for a specific symbol.
+    """
+    try:
+        # Get data from last 7 days for charts
+        cutoff_time = datetime.utcnow() - timedelta(days=7)
+        
+        history = FundingRate.query.filter(
+            FundingRate.symbol == symbol,
+            FundingRate.timestamp >= cutoff_time
+        ).order_by(FundingRate.timestamp.asc()).all()
+        
+        return jsonify([item.to_dict() for item in history])
+    except Exception as e:
+        logger.error(f"Error fetching history for {symbol}: {e}")
+        return jsonify([]), 500
+
 # Serve frontend in production
 if IS_PRODUCTION:
     @app.route('/', defaults={'path': ''})

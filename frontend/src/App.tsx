@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import FundingTable from './components/FundingTable';
+import CryptoDetail from './pages/CryptoDetail';
 import { fetchFundingRates, type MarketOpportunities } from './api';
 
-function App() {
-  const [data, setData] = useState<MarketOpportunities | null>(null);
+function Dashboard() {
+  const [data, setData] = useState<MarketOpportunities>({ top_long: [], top_short: [], timestamp: '' });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -32,10 +34,10 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Lighter Exchange Funding Rates</h1>
+        <h1>Lighter Funding Rates</h1>
         <div className="status-bar">
           {loading && <span className="loading-badge">Updating...</span>}
-          {lastUpdated && !loading && (
+          {lastUpdated && (
             <span className="last-updated">
               Last updated: {lastUpdated.toLocaleTimeString()}
             </span>
@@ -43,9 +45,9 @@ function App() {
         </div>
       </header>
 
-      <main className="dashboard-content">
-        {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message">{error}</div>}
 
+      <div className="dashboard-content">
         {data && (
           <div className="tables-grid">
             <FundingTable
@@ -60,12 +62,23 @@ function App() {
             />
           </div>
         )}
-      </main>
+      </div>
 
       <footer className="app-footer">
-        <p>Data provided by Lighter Exchange. 2-Day Average Calculation.</p>
+        <p>Data provided by Lighter Exchange • 2-Day Average Calculation</p>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/crypto/:symbol" element={<CryptoDetail />} />
+      </Routes>
+    </Router>
   );
 }
 
