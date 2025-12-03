@@ -1,0 +1,7 @@
+flask
+pandas
+requests
+lighter-v1-python
+apscheduler
+flask-sqlalchemy
+flask-cors
