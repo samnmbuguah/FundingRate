@@ -1,0 +1,184 @@
+:root {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #38bdf8;
+  --success-color: #22c55e;
+  --danger-color: #ef4444;
+  --border-color: #334155;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(to right, var(--accent-color), #818cf8);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.status-bar {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.loading-badge {
+  background-color: var(--accent-color);
+  color: #000;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.dashboard-content {
+  flex: 1;
+}
+
+.tables-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+
+@media (min-width: 768px) {
+  .tables-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.funding-table-container {
+  background-color: var(--card-bg);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border-color);
+}
+
+.table-title {
+  font-size: 1.2rem;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.table-title.long {
+  color: var(--success-color);
+}
+
+.table-title.short {
+  color: var(--danger-color);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.symbol-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rate-cell {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 500;
+}
+
+.rate-cell.positive {
+  color: var(--danger-color); /* Positive funding rate means Longs pay Shorts (Short opportunity?) */
+  /* Wait, prompt said: "Top 10 Short Opportunities (Highest Positive Average Funding Rate)" */
+  /* So Positive rate is good for Shorts (they receive funding). */
+  /* Let's color it green for "Opportunity" or stick to Red/Green convention? */
+  /* Usually Green = Good. If it's a Short Opportunity, Positive rate is Good for Short. */
+  /* But typically Positive numbers are Green, Negative are Red. */
+  /* However, in funding rates: */
+  /* Positive = Longs pay Shorts. */
+  /* Negative = Shorts pay Longs. */
+  /* Let's stick to standard colors: Positive = Green (or Red if implying cost?), Negative = Red (or Green if implying income?). */
+  /* Actually, let's just color based on value sign for clarity. */
+  color: var(--success-color); 
+}
+
+.rate-cell.negative {
+  color: var(--danger-color);
+}
+
+/* Override for context */
+.table-title.long ~ .table-wrapper .rate-cell.negative {
+  color: var(--success-color); /* Negative rate is good for Longs */
+}
+
+.table-title.short ~ .table-wrapper .rate-cell.positive {
+  color: var(--success-color); /* Positive rate is good for Shorts */
+}
+/* This CSS selector logic is a bit complex for simple sibling. Let's just use the prop in React or keep it simple. */
+/* I'll simplify: just color based on value. */
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.app-footer {
+  margin-top: 3rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
