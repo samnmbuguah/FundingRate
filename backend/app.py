@@ -1,10 +1,10 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-from apscheduler.schedulers.background import BackgroundScheduler
+
 from lighter_client import LighterClient
 from models import db, FundingRate
 from datetime import datetime, timedelta
-import atexit
+
 import logging
 import os
 
@@ -71,13 +71,8 @@ def fetch_and_store_data():
     except Exception as e:
         logger.error(f"Failed to fetch/store data: {e}")
 
-# Schedule the job - every 1 minute
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=fetch_and_store_data, trigger="interval", minutes=1)
-scheduler.start()
-
-# Shut down the scheduler when exiting the app
-atexit.register(lambda: scheduler.shutdown())
+# Scheduler removed in favor of system cron job to prevent multiple workers issue
+# See backend/fetch_data.py
 
 # Create tables and initial fetch
 with app.app_context():
