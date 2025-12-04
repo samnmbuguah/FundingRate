@@ -45,7 +45,14 @@ function Dashboard() {
         </div>
       </header>
 
-      {error && <div className="error-message">{error}</div>}
+      {error && (
+        <div className="error-message">
+          {error}
+          <button onClick={loadData} className="retry-button">
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="dashboard-content">
         {data && (
