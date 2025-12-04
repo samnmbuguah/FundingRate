@@ -1,21 +1,85 @@
 #!/bin/bash
 
-# Production deployment script for cPanel or similar hosting
+# Configuration
+# UPDATE THESE VARIABLES FOR YOUR ENVIRONMENT
+USER="akilnoqy"
+HOST="66.29.146.96"
+PORT="21098"
+DEST_PATH="/home/akilnoqy/funding-rate/" # Changed folder name to funding-rate
 
-echo "🚀 Building frontend..."
+echo "🚀 Starting deployment to cPanel..."
+
+# 1. Build Frontend
+echo "📦 Building frontend..."
 cd frontend
 npm install
 npm run build
 cd ..
 
-echo "📦 Installing backend dependencies..."
-pip install -r backend/requirements.txt
+# 2. Prepare Production Directory
+echo "📂 Preparing production files..."
+rm -rf production
+mkdir -p production/backend
+mkdir -p production/frontend/dist
 
-echo "✅ Build complete!"
-echo ""
-echo "To run in production mode:"
-echo "  export FLASK_ENV=production"
-echo "  python3 backend/app.py"
-echo ""
-echo "The app will be available at http://localhost:5000"
-echo "Both frontend and API will be served from the same port."
+# Copy Backend Files
+cp backend/app.py production/backend/
+cp backend/requirements.txt production/backend/
+cp backend/lighter_client.py production/backend/
+cp backend/models.py production/backend/
+cp passenger_wsgi.py production/
+
+# Create public directory for Passenger static file serving
+mkdir -p production/public
+
+# Copy Frontend Build to public/ (Passenger serves from here)
+cp -r frontend/dist/* production/public/
+
+# Create .env for production if needed (or rely on cPanel env vars)
+# echo "FLASK_ENV=production" > production/.env
+
+# 3. Deploy to Server
+echo "📤 Uploading to server..."
+# Ensure destination directory exists
+ssh -p $PORT $USER@$HOST "mkdir -p $DEST_PATH"
+
+# Rsync files
+rsync -avz -e "ssh -p $PORT" production/ $USER@$HOST:$DEST_PATH
+
+# 4. Post-Deployment (Install Deps & Restart)
+echo "🔧 Running post-deployment commands on server..."
+ssh -p $PORT $USER@$HOST << 'ENDSSH'
+    set -e  # Exit on any error
+    
+    echo "Activating virtual environment..."
+    source /home/akilnoqy/virtualenv/funding-rate/3.13/bin/activate
+    
+    echo "Current Python: $(which python)"
+    echo "Python version: $(python --version)"
+    
+    echo "Upgrading pip..."
+    pip install --upgrade pip
+    
+    echo "Installing dependencies from requirements.txt..."
+    cd /home/akilnoqy/funding-rate
+    pip install -r backend/requirements.txt --verbose
+    
+    echo "Verifying Flask installation..."
+    python -c "from importlib.metadata import version; print(f'Flask {version(\"flask\")} installed successfully')"
+    
+    echo "Restarting application..."
+    touch passenger_wsgi.py
+    
+    echo "✅ Post-deployment steps completed!"
+ENDSSH
+
+if [ $? -ne 0 ]; then
+    echo "❌ Post-deployment failed! Please check the output above."
+    exit 1
+fi
+
+# 5. Cleanup
+echo "🧹 Cleaning up local artifacts..."
+rm -rf production
+
+echo "✅ Deployment complete!"
