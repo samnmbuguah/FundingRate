@@ -20,6 +20,7 @@ instance/
 node_modules/
 dist/
 .vite/
+public/
 
 # IDE
 .vscode/
