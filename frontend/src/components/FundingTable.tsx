@@ -82,12 +82,10 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
                         <tr>
                             <th>Symbol</th>
                             <th>2-Day Avg Rate</th>
-                            <th>APR (Est.)</th>
                         </tr>
                     </thead>
                     <tbody>
                         {currentData.map((item) => {
-                            const apr = item.average_2day_rate * 24 * 365 * 100;
                             return (
                                 <tr
                                     key={item.symbol}
@@ -102,9 +100,6 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
                                     </td>
                                     <td className={`rate-cell ${item.average_2day_rate > 0 ? 'positive' : 'negative'}`}>
                                         {(item.average_2day_rate * 100).toFixed(4)}%
-                                    </td>
-                                    <td className="rate-cell" style={{ color: 'var(--text-primary)' }}>
-                                        {apr.toFixed(2)}%
                                     </td>
                                 </tr>
                             );
