@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { FundingRateData } from '../api';
 import CryptoLogo from './CryptoLogo';
@@ -7,12 +7,41 @@ interface FundingTableProps {
     title: string;
     data: FundingRateData[];
     type: 'long' | 'short';
+    nextFundingTime?: string;
 }
 
-const FundingTable: React.FC<FundingTableProps> = ({ title, data, type }) => {
+const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFundingTime }) => {
     const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [timeLeft, setTimeLeft] = useState<string>('');
+
+    useEffect(() => {
+        if (!nextFundingTime) return;
+
+        const updateTimer = () => {
+            const now = new Date();
+            const target = new Date(nextFundingTime);
+            const diff = target.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setTimeLeft('00:00:00');
+                return;
+            }
+
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diff / (1000 * 60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+
+            setTimeLeft(
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            );
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, [nextFundingTime]);
 
     const totalPages = Math.ceil(data.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -37,36 +66,52 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type }) => {
 
     return (
         <div className="funding-table-container">
-            <h2 className={`table-title ${type}`}>{title}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h2 className={`table-title ${type}`} style={{ margin: 0, border: 'none', padding: 0 }}>{title}</h2>
+                {nextFundingTime && (
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>Next Funding:</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--accent-color)' }}>{timeLeft}</span>
+                    </div>
+                )}
+            </div>
+
             <div className="table-wrapper">
                 <table>
                     <thead>
                         <tr>
                             <th>Symbol</th>
-                            <th>2-Day Avg Rate (%)</th>
+                            <th>2-Day Avg Rate</th>
+                            <th>APR (Est.)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {currentData.map((item) => (
-                            <tr
-                                key={item.symbol}
-                                onClick={() => handleRowClick(item.symbol)}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                <td className="symbol-cell">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <CryptoLogo symbol={item.symbol} />
-                                        {item.symbol}
-                                    </div>
-                                </td>
-                                <td className={`rate-cell ${item.average_2day_rate > 0 ? 'positive' : 'negative'}`}>
-                                    {(item.average_2day_rate * 100).toFixed(4)}%
-                                </td>
-                            </tr>
-                        ))}
+                        {currentData.map((item) => {
+                            const apr = item.average_2day_rate * 24 * 365 * 100;
+                            return (
+                                <tr
+                                    key={item.symbol}
+                                    onClick={() => handleRowClick(item.symbol)}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <td className="symbol-cell">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <CryptoLogo symbol={item.symbol} />
+                                            {item.symbol}
+                                        </div>
+                                    </td>
+                                    <td className={`rate-cell ${item.average_2day_rate > 0 ? 'positive' : 'negative'}`}>
+                                        {(item.average_2day_rate * 100).toFixed(4)}%
+                                    </td>
+                                    <td className="rate-cell" style={{ color: 'var(--text-primary)' }}>
+                                        {apr.toFixed(2)}%
+                                    </td>
+                                </tr>
+                            );
+                        })}
                         {data.length === 0 && (
                             <tr>
-                                <td colSpan={2} className="empty-message">No data available</td>
+                                <td colSpan={3} className="empty-message">No data available</td>
                             </tr>
                         )}
                     </tbody>

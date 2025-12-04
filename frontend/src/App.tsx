@@ -51,14 +51,16 @@ function Dashboard() {
         {data && (
           <div className="tables-grid">
             <FundingTable
-              title="Top 10 Long Opportunities (Highest Negative Rate)"
+              title="Top 10 Long Opportunities"
               data={data.top_long}
               type="long"
+              nextFundingTime={data.next_funding_time}
             />
             <FundingTable
-              title="Top 10 Short Opportunities (Highest Positive Rate)"
+              title="Top 10 Short Opportunities"
               data={data.top_short}
               type="short"
+              nextFundingTime={data.next_funding_time}
             />
           </div>
         )}

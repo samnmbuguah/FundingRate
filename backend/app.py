@@ -9,7 +9,14 @@ import logging
 import os
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("backend/app.log"),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Determine if we're in production
@@ -122,17 +129,23 @@ def get_funding_rates():
         # Top Short: Most positive rates (longs pay shorts)
         top_short = sorted(averages, key=lambda x: x['average_2day_rate'], reverse=True)[:10]
         
+        # Calculate next funding time (assuming hourly funding)
+        now = datetime.utcnow()
+        next_funding = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        
         return jsonify({
             "top_long": top_long,
             "top_short": top_short,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now.isoformat(),
+            "next_funding_time": next_funding.isoformat()
         })
     except Exception as e:
         logger.error(f"Error calculating funding rates: {e}")
         return jsonify({
             "top_long": [],
             "top_short": [],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
+            "next_funding_time": None
         }), 500
 
 @app.route('/api/funding_rates/<symbol>', methods=['GET'])
@@ -144,10 +157,16 @@ def get_symbol_history(symbol):
         # Get data from last 7 days for charts
         cutoff_time = datetime.utcnow() - timedelta(days=7)
         
+        # Ensure symbol is uppercase
+        symbol = symbol.upper()
+        
         history = FundingRate.query.filter(
             FundingRate.symbol == symbol,
             FundingRate.timestamp >= cutoff_time
         ).order_by(FundingRate.timestamp.asc()).all()
+        
+        if not history:
+            logger.warning(f"No history found for symbol: {symbol}")
         
         return jsonify([item.to_dict() for item in history])
     except Exception as e:
