@@ -1,6 +1,7 @@
 export interface FundingRateData {
     symbol: string;
-    average_2day_rate: number;
+    average_3day_rate: number;
+    apr: number;
 }
 
 export interface MarketOpportunities {

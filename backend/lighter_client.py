@@ -1,14 +1,20 @@
 import requests
-import pandas as pd
-import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class LighterClient:
+    """
+    Lightweight client for the Lighter API.
+
+    Note: We intentionally avoid heavy dependencies like pandas/numexpr here
+    to keep deployment simple and avoid binary compatibility issues.
+    """
+
     BASE_URL = "https://mainnet.zklighter.elliot.ai/api/v1"
 
     def __init__(self):
@@ -38,51 +44,12 @@ class LighterClient:
 
     def get_all_funding_rates_history(self):
         """
-        Fetches funding rate history for all symbols and calculates 2-day average.
+        Placeholder for a future "all symbols history" implementation.
+
+        Currently unused by the application.
         """
-        # 1. Get all symbols
-        symbols = self.get_symbols()
-        
-        results = []
-        
-        for symbol in symbols:
-            try:
-                # Fetch history for this symbol
-                # Endpoint guess: /funding-rates?symbol=XYZ&limit=...
-                # We need 2 days worth of data. Funding is hourly?
-                # 24 * 2 = 48 data points minimum.
-                
-                # Let's try to hit the endpoint mentioned in search: /api/v1/funding-rates
-                # It might return current rates or history.
-                # If it returns current only, we need a history endpoint.
-                # Search said "Funding Rate History".
-                
-                # Let's assume we can pass a symbol and lookback.
-                # If we can't find the exact history endpoint, we will mock it for now 
-                # or use a generic one and filter.
-                
-                # For the purpose of this task, I will implement a robust fetcher 
-                # that tries to get history.
-                
-                # Placeholder for actual API call
-                # response = self.session.get(f"{self.BASE_URL}/funding-rates", params={"symbol": symbol, "limit": 100})
-                # data = response.json()
-                
-                # Since I cannot verify the exact response structure without running it,
-                # I will create a structure that is easy to adapt.
-                
-                # MOCK DATA FOR NOW to ensure the app runs. 
-                # I will add a TODO to replace with real API call once verified.
-                # But I should try to make it real if possible.
-                
-                # Let's use a hardcoded list of symbols for Lighter (Perps)
-                # ETH-USDC, WBTC-USDC are likely.
-                pass
-            except Exception as e:
-                logger.error(f"Error processing symbol {symbol}: {e}")
-                continue
-                
-        return results
+        logger.info("get_all_funding_rates_history called, but not implemented.")
+        return []
 
     def get_symbols(self):
         # Hardcoded for now as fallback
@@ -90,20 +57,19 @@ class LighterClient:
 
     def calculate_2day_average(self, history_data):
         """
-        Calculates 2-day average funding rate from history data.
+        Simple 2-day average funding rate from history data.
+
         history_data: list of dicts with 'rate' and 'timestamp' (or similar)
         """
         if not history_data:
             return 0.0
-            
-        df = pd.DataFrame(history_data)
-        
-        # Ensure we have a timestamp and rate
-        # Assume columns: 'timestamp', 'rate'
-        # Filter for last 2 days
-        
-        # Mock calculation
-        return df['rate'].mean()
+
+        # Lightweight implementation without pandas
+        rates = [item.get("rate") for item in history_data if isinstance(item.get("rate"), (int, float))]
+        if not rates:
+            return 0.0
+
+        return sum(rates) / len(rates)
 
     def get_market_opportunities(self):
         """
@@ -129,39 +95,35 @@ class LighterClient:
             # We will assume 'rate' is the current funding rate.
             
             processed_data = []
-            
+
             # Check if 'funding_rates' key exists or if it's a list directly
             items = data.get('funding_rates', []) if isinstance(data, dict) else data
-            
+
             for item in items:
                 symbol = item.get('symbol')
                 rate_str = item.get('rate', '0')
                 try:
                     rate = float(rate_str)
-                except ValueError:
-                    rate = 0.0
-                
-                # If the rate is hourly, 2-day average might be similar if stable.
-                # We will use this rate.
+                except (TypeError, ValueError):
+                    logger.warning(f"Skipping invalid rate from API for symbol {symbol}: {rate_str}")
+                    continue
+
                 processed_data.append({
                     "symbol": symbol,
                     "average_2day_rate": rate
                 })
-            
-            df = pd.DataFrame(processed_data)
-            
-            if df.empty:
-                logger.warning("No data received from API.")
+
+            if not processed_data:
+                logger.warning("No valid data received from API.")
                 return {"top_long": [], "top_short": [], "timestamp": datetime.now().isoformat()}
 
+            # Sort lists in pure Python instead of pandas
             # Top Long: Lowest (most negative) rates
-            top_long = df.sort_values(by='average_2day_rate', ascending=True).head(10)
-            top_long_list = top_long.to_dict(orient='records')
-            
+            top_long_list = sorted(processed_data, key=lambda x: x["average_2day_rate"])[:10]
+
             # Top Short: Highest (most positive) rates
-            top_short = df.sort_values(by='average_2day_rate', ascending=False).head(10)
-            top_short_list = top_short.to_dict(orient='records')
-            
+            top_short_list = sorted(processed_data, key=lambda x: x["average_2day_rate"], reverse=True)[:10]
+
             return {
                 "top_long": top_long_list,
                 "top_short": top_short_list,

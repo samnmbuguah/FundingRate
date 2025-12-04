@@ -81,7 +81,8 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
                     <thead>
                         <tr>
                             <th>Symbol</th>
-                            <th>2-Day Avg Rate</th>
+                            <th>3-Day Avg Rate</th>
+                            <th>APR (Annualized)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,15 +99,18 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
                                             {item.symbol}
                                         </div>
                                     </td>
-                                    <td className={`rate-cell ${item.average_2day_rate > 0 ? 'positive' : 'negative'}`}>
-                                        {(item.average_2day_rate * 100).toFixed(4)}%
+                                    <td className={`rate-cell ${item.average_3day_rate > 0 ? 'positive' : 'negative'}`}>
+                                        {(item.average_3day_rate * 100).toFixed(4)}%
+                                    </td>
+                                    <td className={`rate-cell ${item.apr > 0 ? 'positive' : 'negative'}`}>
+                                        {(item.apr * 100).toFixed(2)}%
                                     </td>
                                 </tr>
                             );
                         })}
                         {data.length === 0 && (
                             <tr>
-                                <td colSpan={3} className="empty-message">No data available</td>
+                                <td colSpan={4} className="empty-message">No data available</td>
                             </tr>
                         )}
                     </tbody>

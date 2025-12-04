@@ -74,7 +74,7 @@ function Dashboard() {
       </div>
 
       <footer className="app-footer">
-        <p>Data provided by Lighter Exchange • 2-Day Average Calculation</p>
+        <p>Data provided by Lighter Exchange • 3-Day Average Calculation</p>
       </footer>
     </div>
   );

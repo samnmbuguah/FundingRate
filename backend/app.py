@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import logging
 import os
+import math
 
 # Configure logging
 log_file_path = os.path.join(os.path.dirname(__file__), 'app.log')
@@ -57,10 +58,18 @@ def fetch_and_store_data():
             for item in items:
                 symbol = item.get('symbol')
                 rate_str = item.get('rate', '0')
+
                 try:
                     rate = float(rate_str)
-                except ValueError:
-                    rate = 0.0
+                except (TypeError, ValueError):
+                    # Skip completely invalid rates
+                    logger.warning(f"Skipping invalid rate for symbol {symbol}: {rate_str}")
+                    continue
+
+                # Filter out NaN/inf values which break downstream calculations
+                if not math.isfinite(rate):
+                    logger.warning(f"Skipping non-finite rate for symbol {symbol}: {rate}")
+                    continue
                 
                 # Store in database
                 funding_rate = FundingRate(symbol=symbol, rate=rate)
@@ -85,42 +94,66 @@ def get_funding_rates():
     Calculate 2-day average funding rates from database and return top opportunities.
     """
     try:
-        # Get data from last 48 hours
-        cutoff_time = datetime.utcnow() - timedelta(hours=48)
+        # Get data from last 72 hours (3 days)
+        cutoff_time = datetime.utcnow() - timedelta(hours=72)
         
-        # Query all records from last 48 hours
+        # Query all records from last 72 hours
         recent_rates = FundingRate.query.filter(FundingRate.timestamp >= cutoff_time).all()
         
         if not recent_rates:
-            logger.warning("No data in database for last 48 hours.")
+            logger.warning("No data in database for last 72 hours.")
             return jsonify({
                 "top_long": [],
                 "top_short": [],
                 "timestamp": datetime.utcnow().isoformat() + 'Z'
             })
         
-        # Group by symbol and calculate average
+        # Group by symbol and calculate average, filtering out invalid values
         symbol_rates = {}
         for record in recent_rates:
+            rate = record.rate
+            # Skip None or non-finite values that would produce NaN in the frontend
+            if rate is None or not isinstance(rate, (int, float)) or not math.isfinite(rate):
+                logger.warning(f"Skipping invalid stored rate for symbol {record.symbol}: {rate}")
+                continue
+
             if record.symbol not in symbol_rates:
                 symbol_rates[record.symbol] = []
-            symbol_rates[record.symbol].append(record.rate)
+            symbol_rates[record.symbol].append(rate)
         
         # Calculate averages
         averages = []
         for symbol, rates in symbol_rates.items():
+            if not rates:
+                # Skip symbols that ended up with no valid rates
+                continue
+
             avg_rate = sum(rates) / len(rates)
+
+            # Guard against any remaining non-finite values
+            if not math.isfinite(avg_rate):
+                logger.warning(f"Computed non-finite average rate for symbol {symbol}: {avg_rate}")
+                continue
+
+            # Annualized APR = Average Hourly Rate * 24 hours * 365 days
+            apr = avg_rate * 24 * 365
+
+            if not math.isfinite(apr):
+                logger.warning(f"Computed non-finite APR for symbol {symbol}: {apr}")
+                continue
+
             averages.append({
                 "symbol": symbol,
-                "average_2day_rate": avg_rate
+                "average_3day_rate": avg_rate,
+                "apr": apr
             })
         
         # Sort for top opportunities
         # Top Long: Most negative rates (shorts pay longs)
-        top_long = sorted(averages, key=lambda x: x['average_2day_rate'])
+        top_long = sorted(averages, key=lambda x: x['average_3day_rate'])
         
         # Top Short: Most positive rates (longs pay shorts)
-        top_short = sorted(averages, key=lambda x: x['average_2day_rate'], reverse=True)
+        top_short = sorted(averages, key=lambda x: x['average_3day_rate'], reverse=True)
         
         # Calculate next funding time (assuming hourly funding)
         now = datetime.utcnow()
