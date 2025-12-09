@@ -2,12 +2,12 @@
 
 # Configuration
 # UPDATE THESE VARIABLES FOR YOUR ENVIRONMENT
-USER="akilnoqy"
-HOST="66.29.146.96"
+USER="maxqyqjd"
+HOST="162.0.215.135"
 PORT="21098"
-DEST_PATH="/home/akilnoqy/funding-rate/" # Changed folder name to funding-rate
+DEST_PATH="/home/maxqyqjd/maxquant.online/" # Deploy to domain folder
 
-echo "🚀 Starting deployment to cPanel..."
+echo "🚀 Starting deployment to cPanel (maxquant.online)..."
 
 # 1. Build Frontend
 echo "📦 Building frontend..."
@@ -52,7 +52,7 @@ ssh -p $PORT $USER@$HOST << 'ENDSSH'
     set -e  # Exit on any error
     
     echo "Activating virtual environment..."
-    source /home/akilnoqy/virtualenv/funding-rate/3.13/bin/activate
+    source /home/maxqyqjd/virtualenv/maxquant.online/3.13/bin/activate
     
     echo "Current Python: $(which python)"
     echo "Python version: $(python --version)"
@@ -61,7 +61,7 @@ ssh -p $PORT $USER@$HOST << 'ENDSSH'
     pip install --upgrade pip
     
     echo "Installing dependencies from requirements.txt..."
-    cd /home/akilnoqy/funding-rate
+    cd /home/maxqyqjd/maxquant.online
     pip install -r backend/requirements.txt --verbose
     
     echo "Verifying Flask installation..."

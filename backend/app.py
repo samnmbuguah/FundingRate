@@ -29,7 +29,7 @@ IS_PRODUCTION = os.environ.get('PASSENGER_BASE_URI') is not None or os.environ.g
 # Passenger handles this automatically, so we don't configure Flask's static folder
 app = Flask(__name__)
 
-CORS(app)
+CORS(app, origins=['http://maxquant.online', 'https://maxquant.online', 'http://localhost:5173', 'http://localhost:5000'])
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///funding_rates.db'
