@@ -5,6 +5,7 @@ db = SQLAlchemy()
 
 class FundingRate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    exchange = db.Column(db.String(32), nullable=False, default='lighter')
     symbol = db.Column(db.String(50), nullable=False)
     rate = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)

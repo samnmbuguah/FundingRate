@@ -4,3 +4,5 @@ lighter-v1-python
 apscheduler
 flask-sqlalchemy
 flask-cors
+
+hyperliquid-python-sdk
