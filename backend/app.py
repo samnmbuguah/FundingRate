@@ -12,6 +12,7 @@ except ImportError:
     from hyena_client import HyenaClient
     from models import db, FundingRate
 from datetime import datetime, timedelta
+import json
 
 import logging
 import os
@@ -35,26 +36,80 @@ IS_PRODUCTION = os.environ.get('PASSENGER_BASE_URI') is not None or os.environ.g
 
 # Note: In production with Passenger, static files are served from the public/ directory
 # Passenger handles this automatically, so we don't configure Flask's static folder
-app = Flask(__name__)
+app = Flask(__name__, instance_relative_config=True)
 
 CORS(app, origins=['http://maxquant.online', 'https://maxquant.online', 'http://localhost:5173', 'http://localhost:5000'])
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///funding_rates.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
+INSTANCE_DIR = app.instance_path
+os.makedirs(INSTANCE_DIR, exist_ok=True)
+DB_PATH = os.path.join(INSTANCE_DIR, 'funding_rates.db')
+db_uri = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_DATABASE_URI') or ('sqlite:///' + DB_PATH)
+app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db.init_app(app)
 
 client = LighterClient()
 hyena_client = HyenaClient()
 
+def _status_file_path() -> str:
+    return os.path.join(INSTANCE_DIR, 'status.json')
+
+def _write_status(data: dict) -> None:
+    try:
+        with open(_status_file_path(), 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        logger.error(f"Failed to write status: {e}")
+
+def _read_status() -> dict:
+    try:
+        with open(_status_file_path(), 'r') as f:
+            return json.load(f)
+    except Exception:
+        return {"status": "idle"}
+
+def _lock_path(job: str) -> str:
+    return os.path.join(INSTANCE_DIR, f"{job}.lock")
+
+def _acquire_lock(job: str) -> bool:
+    path = _lock_path(job)
+    try:
+        # atomic create; fail if exists
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        with os.fdopen(fd, 'w') as f:
+            f.write(f"pid={os.getpid()} started={datetime.utcnow().isoformat()}Z\n")
+        return True
+    except FileExistsError:
+        logger.warning(f"Job '{job}' already running; skipping new invocation.")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to acquire lock for '{job}': {e}")
+        return False
+
+def _release_lock(job: str) -> None:
+    path = _lock_path(job)
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        logger.error(f"Failed to release lock for '{job}': {e}")
+
 def fetch_and_store_data():
     """
     Scheduled job to fetch data from Lighter API and store in database.
     """
-    logger.info("Fetching and storing funding rate data...")
+    logger.info("Fetching and storing funding rate data (lighter)...")
+    if not _acquire_lock('lighter'):
+        return
     try:
+        _write_status({
+            "job": "lighter",
+            "status": "running",
+            "started_at": datetime.utcnow().isoformat() + 'Z'
+        })
         # Fetch current rates from API
         response = client.session.get(f"{client.BASE_URL}/funding-rates")
         response.raise_for_status()
@@ -85,9 +140,23 @@ def fetch_and_store_data():
                 db.session.add(funding_rate)
             
             db.session.commit()
-            logger.info(f"Stored {len(items)} funding rates in database.")
+            logger.info(f"Stored {len(items)} lighter funding rates in database.")
+            _write_status({
+                "job": "lighter",
+                "status": "completed",
+                "stored": len(items),
+                "completed_at": datetime.utcnow().isoformat() + 'Z'
+            })
     except Exception as e:
-        logger.error(f"Failed to fetch/store data: {e}")
+        logger.error(f"Failed to fetch/store lighter data: {e}")
+        _write_status({
+            "job": "lighter",
+            "status": "failed",
+            "error": str(e),
+            "failed_at": datetime.utcnow().isoformat() + 'Z'
+        })
+    finally:
+        _release_lock('lighter')
 
 
 def fetch_and_store_hyperliquid_data():
@@ -95,8 +164,16 @@ def fetch_and_store_hyperliquid_data():
     Scheduled job to fetch data from Hyperliquid (via HyenaClient) and store in database.
     """
     logger.info("Fetching and storing Hyperliquid funding rate data...")
+    if not _acquire_lock('hyperliquid'):
+        return
     try:
-        payload = hyena_client.fetch_funding_rates()
+        _write_status({
+            "job": "hyperliquid",
+            "status": "running",
+            "started_at": datetime.utcnow().isoformat() + 'Z'
+        })
+        # Use the slower method that fetches ALL markets
+        payload = hyena_client.fetch_all_funding_rates()
 
         items = []
         if isinstance(payload, dict):
@@ -134,16 +211,41 @@ def fetch_and_store_hyperliquid_data():
 
             db.session.commit()
             logger.info(f"Stored {len(symbol_rates)} Hyperliquid funding rates in database.")
+            _write_status({
+                "job": "hyperliquid",
+                "status": "completed",
+                "stored": len(symbol_rates),
+                "completed_at": datetime.utcnow().isoformat() + 'Z'
+            })
     except Exception as e:
         logger.error(f"Failed to fetch/store Hyperliquid data: {e}")
+        _write_status({
+            "job": "hyperliquid",
+            "status": "failed",
+            "error": str(e),
+            "failed_at": datetime.utcnow().isoformat() + 'Z'
+        })
+    finally:
+        _release_lock('hyperliquid')
 
 # Scheduler removed in favor of system cron job to prevent multiple workers issue
 # See backend/fetch_data.py
 
 # Create tables and initial fetch
-with app.app_context():
-    db.create_all()
-    fetch_and_store_data()
+try:
+    with app.app_context():
+        db.create_all()
+        fetch_and_store_data()
+except Exception as e:
+    logger.error(f"Database initialization failed: {e}")
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    try:
+        return jsonify(_read_status())
+    except Exception as e:
+        logger.error(f"Error reading status: {e}")
+        return jsonify({"status": "unknown"}), 500
 
 @app.route('/api/funding_rates', methods=['GET'])
 def get_funding_rates():
@@ -315,15 +417,73 @@ def get_hyperliquid_funding_rates():
 @app.route('/api/hyena/funding_rates', methods=['GET'])
 def get_hyena_funding_rates():
     """
-    Proxy HyENA funding rates so the frontend can render a separate tab.
-    The HyENA API shape is normalized in HyenaClient to match the existing
-    frontend contract.
+    Get HyENA funding rates from database (same as hyperliquid endpoint).
+    This ensures fast responses and avoids rate limiting.
     """
     try:
-        payload = hyena_client.fetch_funding_rates()
-        return jsonify(payload)
+        cutoff_time = datetime.utcnow() - timedelta(hours=72)
+
+        recent_rates = FundingRate.query.filter(
+            FundingRate.exchange == 'hyperliquid',
+            FundingRate.timestamp >= cutoff_time
+        ).all()
+
+        if not recent_rates:
+            logger.warning("No Hyperliquid data in database for last 72 hours.")
+            return jsonify({
+                "top_long": [],
+                "top_short": [],
+                "timestamp": datetime.utcnow().isoformat() + 'Z'
+            })
+
+        symbol_rates = {}
+        for record in recent_rates:
+            rate = record.rate
+            if rate is None or not isinstance(rate, (int, float)) or not math.isfinite(rate):
+                logger.warning(f"Skipping invalid stored Hyperliquid rate for symbol {record.symbol}: {rate}")
+                continue
+
+            if record.symbol not in symbol_rates:
+                symbol_rates[record.symbol] = []
+            symbol_rates[record.symbol].append(rate)
+
+        averages = []
+        for symbol, rates in symbol_rates.items():
+            if not rates:
+                continue
+
+            avg_rate = sum(rates) / len(rates)
+
+            if not math.isfinite(avg_rate):
+                logger.warning(f"Computed non-finite Hyperliquid average rate for symbol {symbol}: {avg_rate}")
+                continue
+
+            apr = avg_rate * 24 * 365
+
+            if not math.isfinite(apr):
+                logger.warning(f"Computed non-finite Hyperliquid APR for symbol {symbol}: {apr}")
+                continue
+
+            averages.append({
+                "symbol": symbol,
+                "average_3day_rate": avg_rate,
+                "apr": apr
+            })
+
+        top_long = sorted(averages, key=lambda x: x['average_3day_rate'])
+        top_short = sorted(averages, key=lambda x: x['average_3day_rate'], reverse=True)
+
+        now = datetime.utcnow()
+        next_funding = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+        return jsonify({
+            "top_long": top_long,
+            "top_short": top_short,
+            "timestamp": now.isoformat() + 'Z',
+            "next_funding_time": next_funding.isoformat() + 'Z'
+        })
     except Exception as exc:  # pylint: disable=broad-except
-        logger.error(f"Error fetching HyENA funding rates: {exc}")
+        logger.error(f"Error fetching HyENA funding rates from database: {exc}")
         return jsonify({
             "top_long": [],
             "top_short": [],
