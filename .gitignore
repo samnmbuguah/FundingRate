@@ -34,3 +34,8 @@ Thumbs.db
 
 # Logs
 *.log
+backend/.env
+
+# Deployment artifacts
+production/
+

@@ -19,6 +19,18 @@ export interface HistoricalRate {
     timestamp: string;
 }
 
+export interface JobStatus {
+    job?: string;
+    status: string;
+    current?: number;
+    total?: number;
+    stored?: number;
+    started_at?: string;
+    completed_at?: string;
+    failed_at?: string;
+    error?: string;
+}
+
 export const fetchFundingRates = async (): Promise<MarketOpportunities> => {
     try {
         const response = await fetch(`${API_BASE_URL}/funding_rates`);
@@ -70,6 +82,14 @@ export const fetchHyperliquidSymbolHistory = async (symbol: string): Promise<His
     const response = await fetch(`${API_BASE_URL}/hyperliquid/funding_rates/${symbol}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch Hyperliquid history for ${symbol}`);
+    }
+    return response.json();
+};
+
+export const fetchStatus = async (): Promise<JobStatus> => {
+    const response = await fetch(`${API_BASE_URL}/status`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch status');
     }
     return response.json();
 };

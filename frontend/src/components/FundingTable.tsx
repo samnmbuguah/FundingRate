@@ -9,9 +9,10 @@ interface FundingTableProps {
     type: 'long' | 'short';
     nextFundingTime?: string;
     enableNavigation?: boolean;
+    exchange?: 'lighter' | 'hyena';
 }
 
-const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFundingTime, enableNavigation = true }) => {
+const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFundingTime, enableNavigation = true, exchange = 'lighter' }) => {
     const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -58,7 +59,7 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
 
     const handleRowClick = (symbol: string) => {
         if (!enableNavigation) return;
-        navigate(`/crypto/${symbol}`);
+        navigate(`/crypto/${symbol}`, { state: { exchange } });
     };
 
     const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

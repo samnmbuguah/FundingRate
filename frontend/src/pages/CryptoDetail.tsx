@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchSymbolHistory, type HistoricalRate } from '../api';
+import { fetchSymbolHistory, fetchHyperliquidSymbolHistory, type HistoricalRate } from '../api';
 import CryptoLogo from '../components/CryptoLogo';
 
 const CryptoDetail: React.FC = () => {
     const { symbol } = useParams<{ symbol: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
+    const state = location.state as { exchange?: 'lighter' | 'hyena' } | null;
+    const exchange = state?.exchange ?? 'lighter';
     const [history, setHistory] = useState<HistoricalRate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -15,7 +18,9 @@ const CryptoDetail: React.FC = () => {
         const loadHistory = async () => {
             if (!symbol) return;
             try {
-                const data = await fetchSymbolHistory(symbol);
+                const data = exchange === 'hyena'
+                    ? await fetchHyperliquidSymbolHistory(symbol)
+                    : await fetchSymbolHistory(symbol);
                 setHistory(data);
             } catch (err) {
                 setError('Failed to load historical data');
@@ -65,7 +70,7 @@ const CryptoDetail: React.FC = () => {
                         ← Back
                     </button>
                     <CryptoLogo symbol={symbol} size={48} />
-                    <h1>{symbol} Funding Rate History</h1>
+                    <h1>{symbol} Funding Rate History ({exchange === 'hyena' ? 'Hyperliquid' : 'Lighter'})</h1>
                 </div>
             </div>
 

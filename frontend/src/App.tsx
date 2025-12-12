@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import FundingTable from './components/FundingTable';
 import CryptoDetail from './pages/CryptoDetail';
-import { fetchFundingRates, fetchHyenaFundingRates, type MarketOpportunities } from './api';
+import { fetchFundingRates, fetchHyenaFundingRates, fetchStatus, type MarketOpportunities, type JobStatus } from './api';
 
 function Dashboard() {
   type Exchange = 'lighter' | 'hyena';
@@ -13,6 +13,7 @@ function Dashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -32,9 +33,27 @@ function Dashboard() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000); // Poll every 10 seconds per exchange
+    // Since data is cached in database, we can poll less frequently
+    // Lighter updates every 10s, Hyperliquid updates via cron (typically every minute)
+    const interval = setInterval(loadData, activeExchange === 'lighter' ? 10000 : 30000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, activeExchange]);
+
+  // Poll backend job status for display in footer
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const status = await fetchStatus();
+        setJobStatus(status);
+      } catch (e) {
+        // Non-fatal; keep prior status
+        console.error('Failed to fetch status', e);
+      }
+    };
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => clearInterval(t);
+  }, []);
 
   const title = activeExchange === 'lighter' ? 'Lighter Funding Rates' : 'Hyperliquid Funding Rates';
   const footerCopy = activeExchange === 'lighter'
@@ -90,14 +109,16 @@ function Dashboard() {
               data={data.top_long}
               type="long"
               nextFundingTime={data.next_funding_time}
-              enableNavigation={activeExchange === 'lighter'}
+              enableNavigation={true}
+              exchange={activeExchange}
             />
             <FundingTable
               title="Top 10 Short Opportunities"
               data={data.top_short}
               type="short"
               nextFundingTime={data.next_funding_time}
-              enableNavigation={activeExchange === 'lighter'}
+              enableNavigation={true}
+              exchange={activeExchange}
             />
           </div>
         )}
@@ -105,6 +126,21 @@ function Dashboard() {
 
       <footer className="app-footer">
         <p>{footerCopy}</p>
+        {jobStatus && (
+          <div className="job-status">
+            <strong>Status:</strong> {jobStatus.status}
+            {jobStatus.job && <> • <strong>Job:</strong> {jobStatus.job}</>}
+            {typeof jobStatus.current === 'number' && typeof jobStatus.total === 'number' && (
+              <> • <strong>Progress:</strong> {jobStatus.current}/{jobStatus.total}</>
+            )}
+            {jobStatus.stored !== undefined && (
+              <> • <strong>Stored:</strong> {jobStatus.stored}</>
+            )}
+            {jobStatus.error && (
+              <> • <strong>Error:</strong> {jobStatus.error}</>
+            )}
+          </div>
+        )}
       </footer>
     </div>
   );

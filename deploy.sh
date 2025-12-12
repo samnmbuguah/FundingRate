@@ -19,23 +19,18 @@ cd ..
 # 2. Prepare Production Directory
 echo "📂 Preparing production files..."
 rm -rf production
-mkdir -p production/backend
-mkdir -p production/frontend/dist
-
-# Copy Backend Files
-cp backend/app.py production/backend/
-cp backend/requirements.txt production/backend/
-cp backend/lighter_client.py production/backend/
-cp backend/hyena_client.py production/backend/
-cp backend/models.py production/backend/
-cp backend/__init__.py production/backend/
-cp passenger_wsgi.py production/
-
-# Create public directory for Passenger static file serving
+mkdir -p production
 mkdir -p production/public
 
+# Copy entire backend to production/backend to avoid missing files
+rsync -av backend/ production/backend/
+
 # Copy Frontend Build to public/ (Passenger serves from here)
+mkdir -p production/public
 cp -r frontend/dist/* production/public/
+
+# WSGI entrypoint for Passenger
+cp passenger_wsgi.py production/
 
 # Create .env for production if needed (or rely on cPanel env vars)
 # echo "FLASK_ENV=production" > production/.env
@@ -65,6 +60,13 @@ ssh -p $PORT $USER@$HOST << 'ENDSSH'
     echo "Installing dependencies from requirements.txt..."
     cd /home/maxqyqjd/maxquant.online
     pip install -r backend/requirements.txt --verbose
+    
+    echo "Ensuring Flask instance directory exists and is writable..."
+    mkdir -p /home/maxqyqjd/maxquant.online/backend/instance
+    chmod 775 /home/maxqyqjd/maxquant.online/backend/instance
+    
+    echo "Running initial data fetch (lighter + hyperliquid)..."
+    python backend/fetch_data.py
     
     echo "Verifying Flask installation..."
     python -c "from importlib.metadata import version; print(f'Flask {version(\"flask\")} installed successfully')"
