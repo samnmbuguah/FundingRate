@@ -8,9 +8,10 @@ interface FundingTableProps {
     data: FundingRateData[];
     type: 'long' | 'short';
     nextFundingTime?: string;
+    enableNavigation?: boolean;
 }
 
-const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFundingTime }) => {
+const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFundingTime, enableNavigation = true }) => {
     const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -56,6 +57,7 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
     };
 
     const handleRowClick = (symbol: string) => {
+        if (!enableNavigation) return;
         navigate(`/crypto/${symbol}`);
     };
 
@@ -91,7 +93,7 @@ const FundingTable: React.FC<FundingTableProps> = ({ title, data, type, nextFund
                                 <tr
                                     key={item.symbol}
                                     onClick={() => handleRowClick(item.symbol)}
-                                    style={{ cursor: 'pointer' }}
+                                    style={{ cursor: enableNavigation ? 'pointer' : 'default' }}
                                 >
                                     <td className="symbol-cell">
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

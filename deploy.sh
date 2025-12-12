@@ -26,7 +26,9 @@ mkdir -p production/frontend/dist
 cp backend/app.py production/backend/
 cp backend/requirements.txt production/backend/
 cp backend/lighter_client.py production/backend/
+cp backend/hyena_client.py production/backend/
 cp backend/models.py production/backend/
+cp backend/__init__.py production/backend/
 cp passenger_wsgi.py production/
 
 # Create public directory for Passenger static file serving

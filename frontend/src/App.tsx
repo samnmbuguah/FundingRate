@@ -1,19 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import FundingTable from './components/FundingTable';
 import CryptoDetail from './pages/CryptoDetail';
-import { fetchFundingRates, type MarketOpportunities } from './api';
+import { fetchFundingRates, fetchHyenaFundingRates, type MarketOpportunities } from './api';
 
 function Dashboard() {
+  type Exchange = 'lighter' | 'hyena';
+
+  const [activeExchange, setActiveExchange] = useState<Exchange>('lighter');
   const [data, setData] = useState<MarketOpportunities>({ top_long: [], top_short: [], timestamp: '' });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      const result = await fetchFundingRates();
+      const fetcher = activeExchange === 'lighter' ? fetchFundingRates : fetchHyenaFundingRates;
+      const result = await fetcher();
       setData(result);
       setLastUpdated(new Date());
       setError(null);
@@ -23,18 +28,41 @@ function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeExchange]);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000); // Poll every 10 seconds
+    const interval = setInterval(loadData, 10000); // Poll every 10 seconds per exchange
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
+
+  const title = activeExchange === 'lighter' ? 'Lighter Funding Rates' : 'Hyperliquid Funding Rates';
+  const footerCopy = activeExchange === 'lighter'
+    ? 'Data provided by Lighter Exchange • 3-Day Average Calculation'
+    : 'Data provided by Hyperliquid • 3-Day Average Calculation';
 
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Lighter Funding Rates</h1>
+        <div>
+          <h1>{title}</h1>
+          <div className="exchange-tabs">
+            <button
+              className={`exchange-tab ${activeExchange === 'lighter' ? 'active' : ''}`}
+              onClick={() => setActiveExchange('lighter')}
+              disabled={activeExchange === 'lighter'}
+            >
+              Lighter
+            </button>
+            <button
+              className={`exchange-tab ${activeExchange === 'hyena' ? 'active' : ''}`}
+              onClick={() => setActiveExchange('hyena')}
+              disabled={activeExchange === 'hyena'}
+            >
+              Hyperliquid
+            </button>
+          </div>
+        </div>
         <div className="status-bar">
           {loading && <span className="loading-badge">Updating...</span>}
           {lastUpdated && (
@@ -62,19 +90,21 @@ function Dashboard() {
               data={data.top_long}
               type="long"
               nextFundingTime={data.next_funding_time}
+              enableNavigation={activeExchange === 'lighter'}
             />
             <FundingTable
               title="Top 10 Short Opportunities"
               data={data.top_short}
               type="short"
               nextFundingTime={data.next_funding_time}
+              enableNavigation={activeExchange === 'lighter'}
             />
           </div>
         )}
       </div>
 
       <footer className="app-footer">
-        <p>Data provided by Lighter Exchange • 3-Day Average Calculation</p>
+        <p>{footerCopy}</p>
       </footer>
     </div>
   );

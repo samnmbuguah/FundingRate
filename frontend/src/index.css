@@ -57,6 +57,33 @@ body {
   gap: 0.5rem;
 }
 
+.exchange-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.exchange-tab {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exchange-tab:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  background-color: var(--hover-bg);
+}
+
+.exchange-tab.active {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  cursor: default;
+}
+
 .loading-badge {
   background-color: var(--accent-color);
   color: #000;
