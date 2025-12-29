@@ -77,12 +77,38 @@ def _lock_path(job: str) -> str:
 def _acquire_lock(job: str) -> bool:
     path = _lock_path(job)
     try:
-        # atomic create; fail if exists
+        # Atomic create; fail if exists
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         with os.fdopen(fd, 'w') as f:
             f.write(f"pid={os.getpid()} started={datetime.utcnow().isoformat()}Z\n")
         return True
     except FileExistsError:
+        # Check if lock is stale
+        try:
+            with open(path, 'r') as f:
+                content = f.read().strip()
+            
+            # Extract timestamp
+            # Format: pid=123 started=2024-01-01T00:00:00.000000Z
+            import re
+            match = re.search(r'started=([\d\-T:\.Z]+)', content)
+            if match:
+                started_str = match.group(1).rstrip('Z')
+                # Truncate microseconds if present to match format expected by fromisoformat
+                if '.' in started_str:
+                     started_str = started_str[:26] 
+                
+                started_at = datetime.fromisoformat(started_str)
+                age = datetime.utcnow() - started_at
+                
+                if age > timedelta(minutes=30):
+                    logger.warning(f"Found stale lock for '{job}' (age: {age}). Removing...")
+                    os.remove(path)
+                    # Try converting to recursion or just retry once
+                    return _acquire_lock(job)
+        except Exception as e:
+            logger.error(f"Error checking stale lock for '{job}': {e}")
+
         logger.warning(f"Job '{job}' already running; skipping new invocation.")
         return False
     except Exception as e:
@@ -236,6 +262,7 @@ try:
     with app.app_context():
         db.create_all()
         fetch_and_store_data()
+        fetch_and_store_hyperliquid_data()
 except Exception as e:
     logger.error(f"Database initialization failed: {e}")
 

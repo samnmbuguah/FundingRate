@@ -137,8 +137,8 @@ class HyenaClient:
                     "next_funding_time": None,
                 }
 
-            top_long = sorted(processed, key=lambda x: x["average_3day_rate"])[:10]
-            top_short = sorted(processed, key=lambda x: x["average_3day_rate"], reverse=True)[:10]
+            top_long = sorted(processed, key=lambda x: x["average_3day_rate"])
+            top_short = sorted(processed, key=lambda x: x["average_3day_rate"], reverse=True)
             
             # Assume hourly funding: next funding is the start of the next hour
             next_funding = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
@@ -194,8 +194,8 @@ class HyenaClient:
                     "next_funding_time": None,
                 }
 
-            top_long = sorted(processed, key=lambda x: x["average_3day_rate"])[:10]
-            top_short = sorted(processed, key=lambda x: x["average_3day_rate"], reverse=True)[:10]
+            top_long = sorted(processed, key=lambda x: x["average_3day_rate"])
+            top_short = sorted(processed, key=lambda x: x["average_3day_rate"], reverse=True)
             
             # Assume hourly funding: next funding is the start of the next hour
             next_funding = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
