@@ -23,7 +23,7 @@ mkdir -p production
 mkdir -p production/public
 
 # Copy entire backend to production/backend to avoid missing files
-rsync -av backend/ production/backend/
+rsync -av --exclude 'venv' --exclude '__pycache__' --exclude '.git' --exclude '*.pyc' backend/ production/backend/
 
 # Copy Frontend Build to public/ (Passenger serves from here)
 mkdir -p production/public
@@ -41,7 +41,7 @@ echo "📤 Uploading to server..."
 ssh -p $PORT $USER@$HOST "mkdir -p $DEST_PATH"
 
 # Rsync files
-rsync -avz -e "ssh -p $PORT" production/ $USER@$HOST:$DEST_PATH
+rsync -avz -e "ssh -p $PORT" --exclude 'venv' --exclude '__pycache__' --exclude '.git' production/ $USER@$HOST:$DEST_PATH
 
 # 4. Post-Deployment (Install Deps & Restart)
 echo "🔧 Running post-deployment commands on server..."
