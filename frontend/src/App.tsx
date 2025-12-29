@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import './App.css';
 import FundingTable from './components/FundingTable';
 import CryptoDetail from './pages/CryptoDetail';
 import { fetchFundingRates, fetchHyenaFundingRates, fetchStatus, type MarketOpportunities, type JobStatus } from './api';
 
+
 function Dashboard() {
   type Exchange = 'lighter' | 'hyena';
 
-  const [activeExchange, setActiveExchange] = useState<Exchange>('lighter');
+  // Get active exchange from URL logic or props could work, 
+  // but better to just use separate routes rendering Dashboard with propped exchange
+  const location = useLocation();
+  const activeExchange: Exchange = location.pathname === '/hyperliquid' ? 'hyena' : 'lighter';
+
   const [data, setData] = useState<MarketOpportunities>({ top_long: [], top_short: [], timestamp: '' });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,20 +71,22 @@ function Dashboard() {
         <div>
           <h1>{title}</h1>
           <div className="exchange-tabs">
-            <button
-              className={`exchange-tab ${activeExchange === 'lighter' ? 'active' : ''}`}
-              onClick={() => setActiveExchange('lighter')}
-              disabled={activeExchange === 'lighter'}
-            >
-              Lighter
-            </button>
-            <button
-              className={`exchange-tab ${activeExchange === 'hyena' ? 'active' : ''}`}
-              onClick={() => setActiveExchange('hyena')}
-              disabled={activeExchange === 'hyena'}
-            >
-              Hyperliquid
-            </button>
+            <Link to="/">
+              <button
+                className={`exchange-tab ${activeExchange === 'lighter' ? 'active' : ''}`}
+                disabled={activeExchange === 'lighter'}
+              >
+                Lighter
+              </button>
+            </Link>
+            <Link to="/hyperliquid">
+              <button
+                className={`exchange-tab ${activeExchange === 'hyena' ? 'active' : ''}`}
+                disabled={activeExchange === 'hyena'}
+              >
+                Hyperliquid
+              </button>
+            </Link>
           </div>
         </div>
         <div className="status-bar">
@@ -151,6 +158,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/hyperliquid" element={<Dashboard />} />
         <Route path="/crypto/:symbol" element={<CryptoDetail />} />
       </Routes>
     </Router>
