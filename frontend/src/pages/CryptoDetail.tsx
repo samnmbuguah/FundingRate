@@ -70,7 +70,7 @@ const CryptoDetail: React.FC = () => {
                         ← Back
                     </button>
                     <CryptoLogo symbol={symbol} size={48} />
-                    <h1>{symbol} Funding Rate History ({exchange === 'hyena' ? 'Hyperliquid' : 'Lighter'})</h1>
+                    <h1>{symbol} Funding Rate History ({exchange === 'hyena' ? 'HyENA' : 'Lighter'})</h1>
                 </div>
             </div>
 

@@ -12,7 +12,7 @@ function Dashboard() {
   // Get active exchange from URL logic or props could work, 
   // but better to just use separate routes rendering Dashboard with propped exchange
   const location = useLocation();
-  const activeExchange: Exchange = location.pathname === '/hyperliquid' ? 'hyena' : 'lighter';
+  const activeExchange: Exchange = location.pathname === '/hyena' ? 'hyena' : 'lighter';
 
   const [data, setData] = useState<MarketOpportunities>({ top_long: [], top_short: [], timestamp: '' });
   const [loading, setLoading] = useState<boolean>(true);
@@ -60,10 +60,10 @@ function Dashboard() {
     return () => clearInterval(t);
   }, []);
 
-  const title = activeExchange === 'lighter' ? 'Lighter Funding Rates' : 'Hyperliquid Funding Rates';
+  const title = activeExchange === 'lighter' ? 'Lighter Funding Rates' : 'HyENA Funding Rates';
   const footerCopy = activeExchange === 'lighter'
     ? 'Data provided by Lighter Exchange • 3-Day Average Calculation'
-    : 'Data provided by Hyperliquid • 3-Day Average Calculation';
+    : 'Data provided by HyENA (hyena.trade) • USDe Margin • 3-Day Average Calculation';
 
   return (
     <div className="app-container">
@@ -79,12 +79,12 @@ function Dashboard() {
                 Lighter
               </button>
             </Link>
-            <Link to="/hyperliquid">
+            <Link to="/hyena">
               <button
                 className={`exchange-tab ${activeExchange === 'hyena' ? 'active' : ''}`}
                 disabled={activeExchange === 'hyena'}
               >
-                Hyperliquid
+                HyENA
               </button>
             </Link>
           </div>
@@ -158,7 +158,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/hyperliquid" element={<Dashboard />} />
+        <Route path="/hyena" element={<Dashboard />} />
         <Route path="/crypto/:symbol" element={<CryptoDetail />} />
       </Routes>
     </Router>
