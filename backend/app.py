@@ -42,7 +42,10 @@ CORS(app, origins=['http://maxquant.online', 'https://maxquant.online', 'http://
 
 
 # Initialize database
-INSTANCE_DIR = app.instance_path
+# Use explicit path relative to this file's directory to ensure consistency
+# whether called from Passenger or the cron job
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+INSTANCE_DIR = os.path.join(BACKEND_DIR, 'instance')
 os.makedirs(INSTANCE_DIR, exist_ok=True)
 DB_PATH = os.path.join(INSTANCE_DIR, 'funding_rates.db')
 db_uri = os.environ.get('DATABASE_URL') or os.environ.get('SQLALCHEMY_DATABASE_URI') or ('sqlite:///' + DB_PATH)
@@ -185,16 +188,16 @@ def fetch_and_store_data():
         _release_lock('lighter')
 
 
-def fetch_and_store_hyperliquid_data():
+def fetch_and_store_hyena_data():
     """
-    Scheduled job to fetch data from Hyperliquid (via HyenaClient) and store in database.
+    Scheduled job to fetch data from HyENA (USDe-margined perps on Hyperliquid) and store in database.
     """
-    logger.info("Fetching and storing Hyperliquid funding rate data...")
-    if not _acquire_lock('hyperliquid'):
+    logger.info("Fetching and storing HyENA funding rate data...")
+    if not _acquire_lock('hyena'):
         return
     try:
         _write_status({
-            "job": "hyperliquid",
+            "job": "hyena",
             "status": "running",
             "started_at": datetime.utcnow().isoformat() + 'Z'
         })
@@ -217,42 +220,42 @@ def fetch_and_store_hyperliquid_data():
             try:
                 rate = float(rate_value)
             except (TypeError, ValueError):
-                logger.warning(f"Skipping invalid Hyperliquid rate for symbol {symbol}: {rate_value}")
+                logger.warning(f"Skipping invalid HyENA rate for symbol {symbol}: {rate_value}")
                 continue
 
             if not math.isfinite(rate):
-                logger.warning(f"Skipping non-finite Hyperliquid rate for symbol {symbol}: {rate}")
+                logger.warning(f"Skipping non-finite HyENA rate for symbol {symbol}: {rate}")
                 continue
 
             symbol_rates[symbol] = rate
 
         if not symbol_rates:
-            logger.warning("No usable Hyperliquid funding data to store.")
+            logger.warning("No usable HyENA funding data to store.")
             return
 
         with app.app_context():
             for symbol, rate in symbol_rates.items():
-                funding_rate = FundingRate(exchange='hyperliquid', symbol=symbol, rate=rate)
+                funding_rate = FundingRate(exchange='hyena', symbol=symbol, rate=rate)
                 db.session.add(funding_rate)
 
             db.session.commit()
-            logger.info(f"Stored {len(symbol_rates)} Hyperliquid funding rates in database.")
+            logger.info(f"Stored {len(symbol_rates)} HyENA funding rates in database.")
             _write_status({
-                "job": "hyperliquid",
+                "job": "hyena",
                 "status": "completed",
                 "stored": len(symbol_rates),
                 "completed_at": datetime.utcnow().isoformat() + 'Z'
             })
     except Exception as e:
-        logger.error(f"Failed to fetch/store Hyperliquid data: {e}")
+        logger.error(f"Failed to fetch/store HyENA data: {e}")
         _write_status({
-            "job": "hyperliquid",
+            "job": "hyena",
             "status": "failed",
             "error": str(e),
             "failed_at": datetime.utcnow().isoformat() + 'Z'
         })
     finally:
-        _release_lock('hyperliquid')
+        _release_lock('hyena')
 
 # Scheduler removed in favor of system cron job to prevent multiple workers issue
 # See backend/fetch_data.py
@@ -262,7 +265,7 @@ try:
     with app.app_context():
         db.create_all()
         fetch_and_store_data()
-        fetch_and_store_hyperliquid_data()
+        fetch_and_store_hyena_data()
 except Exception as e:
     logger.error(f"Database initialization failed: {e}")
 
@@ -373,12 +376,12 @@ def get_hyperliquid_funding_rates():
         cutoff_time = datetime.utcnow() - timedelta(hours=72)
 
         recent_rates = FundingRate.query.filter(
-            FundingRate.exchange == 'hyperliquid',
+            FundingRate.exchange == 'hyena',
             FundingRate.timestamp >= cutoff_time
         ).all()
 
         if not recent_rates:
-            logger.warning("No Hyperliquid data in database for last 72 hours.")
+            logger.warning("No HyENA data in database for last 72 hours.")
             return jsonify({
                 "top_long": [],
                 "top_short": [],
@@ -404,13 +407,13 @@ def get_hyperliquid_funding_rates():
             avg_rate = sum(rates) / len(rates)
 
             if not math.isfinite(avg_rate):
-                logger.warning(f"Computed non-finite Hyperliquid average rate for symbol {symbol}: {avg_rate}")
+                logger.warning(f"Computed non-finite HyENA average rate for symbol {symbol}: {avg_rate}")
                 continue
 
             apr = avg_rate * 24 * 365
 
             if not math.isfinite(apr):
-                logger.warning(f"Computed non-finite Hyperliquid APR for symbol {symbol}: {apr}")
+                logger.warning(f"Computed non-finite HyENA APR for symbol {symbol}: {apr}")
                 continue
 
             averages.append({
@@ -432,7 +435,7 @@ def get_hyperliquid_funding_rates():
             "next_funding_time": next_funding.isoformat() + 'Z'
         })
     except Exception as e:
-        logger.error(f"Error calculating Hyperliquid funding rates: {e}")
+        logger.error(f"Error calculating HyENA funding rates: {e}")
         return jsonify({
             "top_long": [],
             "top_short": [],
@@ -451,12 +454,12 @@ def get_hyena_funding_rates():
         cutoff_time = datetime.utcnow() - timedelta(hours=72)
 
         recent_rates = FundingRate.query.filter(
-            FundingRate.exchange == 'hyperliquid',
+            FundingRate.exchange == 'hyena',
             FundingRate.timestamp >= cutoff_time
         ).all()
 
         if not recent_rates:
-            logger.warning("No Hyperliquid data in database for last 72 hours.")
+            logger.warning("No HyENA data in database for last 72 hours.")
             return jsonify({
                 "top_long": [],
                 "top_short": [],
@@ -482,13 +485,13 @@ def get_hyena_funding_rates():
             avg_rate = sum(rates) / len(rates)
 
             if not math.isfinite(avg_rate):
-                logger.warning(f"Computed non-finite Hyperliquid average rate for symbol {symbol}: {avg_rate}")
+                logger.warning(f"Computed non-finite HyENA average rate for symbol {symbol}: {avg_rate}")
                 continue
 
             apr = avg_rate * 24 * 365
 
             if not math.isfinite(apr):
-                logger.warning(f"Computed non-finite Hyperliquid APR for symbol {symbol}: {apr}")
+                logger.warning(f"Computed non-finite HyENA APR for symbol {symbol}: {apr}")
                 continue
 
             averages.append({
@@ -556,17 +559,17 @@ def get_hyperliquid_symbol_history(symbol):
         symbol = symbol.upper()
 
         history = FundingRate.query.filter(
-            FundingRate.exchange == 'hyperliquid',
+            FundingRate.exchange == 'hyena',
             FundingRate.symbol == symbol,
             FundingRate.timestamp >= cutoff_time
         ).order_by(FundingRate.timestamp.asc()).all()
 
         if not history:
-            logger.warning(f"No Hyperliquid history found for symbol: {symbol}")
+            logger.warning(f"No HyENA history found for symbol: {symbol}")
 
         return jsonify([item.to_dict() for item in history])
     except Exception as e:
-        logger.error(f"Error fetching Hyperliquid history for {symbol}: {e}")
+        logger.error(f"Error fetching HyENA history for {symbol}: {e}")
         return jsonify([]), 500
 
 # Serve frontend - Passenger serves static files from public/, but we need to handle SPA routing
